@@ -15,7 +15,7 @@ Scaler scaler = new Scaler();
 // @Note This represents a some generic object.
 Object someObject = new Object();
 
-// @Note And use the "scaleObject" method to calculate the object size.
+// @Note The method "scaleObject" calculates the object size.
 int size = scaler.scaleObject(someObject);
 
 ```
