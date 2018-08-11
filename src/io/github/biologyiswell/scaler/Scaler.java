@@ -166,7 +166,6 @@ public final class Scaler {
                         }
 
                         size += type.equals("class java.lang.Object") ? OBJECT_BYTES : sizeof(currentObject);
-                        // size += currentObject != null ? this.sizeof(currentObject) : this.scaleClass(Class.forName(field.getType().toString().substring(6)));
                     } catch (IllegalAccessException e) {
                         e.printStackTrace();
                     }
