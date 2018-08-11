@@ -95,6 +95,10 @@ public class Scaler {
                         // @Note This represents the generic object to reference the array.
                         final Object currentObjectArray = field.get(object);
 
+                        if (currentObjectArray == null) {
+                            continue;
+                        }
+
                         // @Note The boilerplate code that this switch turn is because each primitive data type can not
                         // be cast by a Object[], then the each data type must have your cast.
 
@@ -124,14 +128,19 @@ public class Scaler {
                                 // string and generic object, then the size from the class of this data type must be
                                 // calculated and used to arrive more near to right.
                                 else {
-                                    // @Note Data Type Size: "this.scaleClass(Class.forName(type.substring(7)))".
-                                    size += ARRAY_BYTES + this.scaleClass(Class.forName(type.substring(7))) * ((Object[]) currentObjectArray).length;
+                                    final Object[] array = (Object[]) currentObjectArray;
+
+                                    size += ARRAY_BYTES;
+
+                                    for (Object element : array) {
+                                        size += this.scaleObject(element);
+                                    }
                                 }
                                 break;
                             default:
                                 throw new RuntimeException("Field type (" + type + ") can not be parse.");
                         }
-                    } catch (IllegalAccessException | ClassNotFoundException e) {
+                    } catch (IllegalAccessException e) {
                         e.printStackTrace();
                     }
                 }
@@ -140,9 +149,12 @@ public class Scaler {
                     try {
                         final Object currentObject = field.get(object);
 
-                        // @Note This condition check if the current object is equals null and if the type name from the
-                        // field is equals "class java.lang.Object".
-                        if (currentObject == null && type.equals("class java.lang.Object")) {
+                        if (currentObject == null) {
+                            continue;
+                        }
+
+                        // @Note This condition check if the type is a Object.
+                        if (type.equals("class java.lang.Object")) {
                             // @Note Sum the default Object size, because can not calculate the fields that contains in
                             // this object because is null. Because the object can be a generic object.
                             size += 8;
@@ -150,71 +162,12 @@ public class Scaler {
                             continue;
                         }
 
-                        size += currentObject != null ? this.scaleObject(currentObject) : this.scaleClass(Class.forName(field.getType().toString().substring(6)));
-                    } catch (IllegalAccessException | ClassNotFoundException e) {
+                        size += type.equals("class java.lang.Object") ? 8 : this.scaleObject(currentObject);
+                        // size += currentObject != null ? this.scaleObject(currentObject) : this.scaleClass(Class.forName(field.getType().toString().substring(6)));
+                    } catch (IllegalAccessException e) {
                         e.printStackTrace();
                     }
                 }
-
-                continue;
-            }
-
-            switch (type) {
-                case "boolean": size += BOOLEAN_BYTES;
-                    break;
-                case "byte": size += Byte.BYTES;
-                    break;
-                case "short": size += Short.BYTES;
-                    break;
-                case "char": size += Character.BYTES;
-                    break;
-                case "int": size += Integer.BYTES;
-                    break;
-                case "float": size += Float.BYTES;
-                    break;
-                case "double": size += Double.BYTES;
-                    break;
-                case "long": size += Long.BYTES;
-                    break;
-
-                default:
-                    throw new RuntimeException("Field Type (" + type + ") has not found to be parse.");
-            }
-        }
-
-        return size;
-    }
-
-    /**
-     * This method calculates the size from the all field data types that contains in the class, this method is only be
-     * used when the object from the class that should be calculated is null, then to the current size from the object
-     * arrives more near to right this class calculates the field data types size.
-     *
-     * @Note This object make more generic checks. This can be change in the next versions.
-     *
-     * @param klass the class that is used to calculated the all field data types.
-     * @since 1.0
-     */
-    private int scaleClass(final Class<?> klass) {
-        // @Note This condition check if the class is null.
-        if (klass == null) {
-            throw new NullPointerException("klass");
-        }
-
-        // @Note The size starts with 8 bytes, because the each class use 8 bytes.
-        int size = OBJECT_BYTES;
-
-        // @Note For-each loop from the all declared fields that contains in this class.
-        for (Field field : klass.getDeclaredFields()) {
-            final String type = field.getType().toString();
-
-            // @Note This condition check if the field data type is a class.
-            if (type.startsWith("class")) {
-                size += OBJECT_BYTES;
-
-                continue;
-            } else if (type.startsWith("class [")) {
-                size += ARRAY_BYTES;
 
                 continue;
             }
