@@ -5,6 +5,7 @@ import java.lang.reflect.Field;
 /**
  * @author biologyiswell (26/07/2018 18:28)
  * @since 1.0
+ * @version 1.1
  */
 public class Scaler {
 
@@ -34,6 +35,20 @@ public class Scaler {
     private static final int ARRAY_BYTES = 12;
 
     /**
+     * Current Java Version from OS that running this project.
+     * @since 1.1
+     */
+    private static final int JAVA_VERSION = Integer.parseInt(System.getProperty("java.version").split("\\.")[1]);
+
+    /**
+     * The String.class do not contains the variable "BYTES" that each character that contains in string consumes in
+     * RAM Memory, then this variable is created to show the amount of bytes that each chracter that contains in string
+     * consumes, then with the implementation from Java 9 the characters from string bacmea byte values.
+     * @since 1.1
+     */
+    private static final int STRING_CHARACTER_BYTES = JAVA_VERSION <= 8 ? 2 : 1;
+
+    /**
      * This method calculates the size that the Object when instantiated will occupies in RAM Memory. But this
      * calculation has a margin of error that is increased when the objects constitutes only by Object data types
      * without instantiation and when the class is much bigger with non instantiated objects resuming. However this
@@ -56,18 +71,18 @@ public class Scaler {
         for (Field field : object.getClass().getDeclaredFields()) {
             String type = field.getType().toString();
 
-            // @Note This condition check if the type starts from "class".
-            if (type.equals("class java.lang.String")) {
-                // @Note Make the field accessible.
-                field.setAccessible(true);
+            // @Note Make the field accessible.
+            field.setAccessible(true);
 
+            // @Note This condition check if the current object is a String.
+            if (type.equals("class java.lang.String")) {
                 try {
-                    Object stringObject = field.get(object);
+                    String string = (String) field.get(object);
 
                     // @Note The size calculates if the string object is different from null then the object occupies
                     // the 8 bytes from the object more 2 times length of String, otherwise if the string object is
                     // equals  null then the object only occupies the 8 bytes from object.
-                    size += stringObject != null ? 8 + (2 * ((String) stringObject).length()) : 8;
+                    size += string != null ? 8 + (STRING_CHARACTER_BYTES * string.length()) : 8;
                 } catch (IllegalAccessException e) {
                     e.printStackTrace();
                 }
@@ -76,9 +91,6 @@ public class Scaler {
             } else if (type.startsWith("class")) {
                 // @Note This condition check if the object is an array.
                 if (type.contains("[")) {
-                    // @Note Make the field accessible.
-                    field.setAccessible(true);
-
                     try {
                         // @Note This represents the generic object to reference the array.
                         Object currentObjectArray = field.get(object);
@@ -125,12 +137,8 @@ public class Scaler {
                 }
                 // @Note This represents that the object is not an array.
                 else {
-                    // @Note Make the field accessible.
-                    field.setAccessible(true);
-
                     try {
                         Object currentObject = field.get(object);
-                        System.out.println(field.getType());
 
                         // @Note This condition check if the current object is equals null and if the type name from the
                         // field is equals "class java.lang.Object".
