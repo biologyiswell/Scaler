@@ -7,7 +7,11 @@ import java.lang.reflect.Field;
  * @since 1.0
  * @version 1.1
  */
-public class Scaler {
+public final class Scaler {
+
+    // non-instantiate.
+    private Scaler() {
+    }
 
     /**
      * The Boolean.class do not contains the variable "BYTES" that shows the quantity of bytes that the boolean data
@@ -58,7 +62,7 @@ public class Scaler {
      * @return the size from the object.
      * @since 1.0
      */
-    public int scaleObject(final Object object) {
+    public static int sizeof(final Object object) {
         // @Note This condition check if the object is null.
         if (object == null) {
             throw new NullPointerException("object");
@@ -82,7 +86,7 @@ public class Scaler {
                     // @Note The size calculates if the string object is different from null then the object occupies
                     // the 8 bytes from the object more 2 times length of String, otherwise if the string object is
                     // equals  null then the object only occupies the 8 bytes from object.
-                    size += string != null ? 8 + (STRING_CHARACTER_BYTES * string.length()) : 8;
+                    size += string != null ? OBJECT_BYTES + (STRING_CHARACTER_BYTES * string.length()) : OBJECT_BYTES;
                 } catch (IllegalAccessException e) {
                     e.printStackTrace();
                 }
@@ -124,7 +128,8 @@ public class Scaler {
                                 if (type.equals("class [Ljava.lang.String") || type.equals("class [Ljava.lang.Object")) {
                                     size += ARRAY_BYTES + BOOLEAN_BYTES * ((Object[]) currentObjectArray).length;
                                 }
-                                // @Note This represents that the data-type from the array is not a primive type and is not
+
+                                // @Note This represents that the data-type from the array is not a primitive type and is not
                                 // string and generic object, then the size from the class of this data type must be
                                 // calculated and used to arrive more near to right.
                                 else {
@@ -133,7 +138,14 @@ public class Scaler {
                                     size += ARRAY_BYTES;
 
                                     for (Object element : array) {
-                                        size += this.scaleObject(element);
+                                        // @Note This condition check if the element that contains in array is null,
+                                        // because the method "sizeof" check if the object is null and throws
+                                        // an exception.
+                                        if (element == null) {
+                                            continue;
+                                        }
+
+                                        size += sizeof(element);
                                     }
                                 }
                                 break;
@@ -153,17 +165,8 @@ public class Scaler {
                             continue;
                         }
 
-                        // @Note This condition check if the type is a Object.
-                        if (type.equals("class java.lang.Object")) {
-                            // @Note Sum the default Object size, because can not calculate the fields that contains in
-                            // this object because is null. Because the object can be a generic object.
-                            size += 8;
-
-                            continue;
-                        }
-
-                        size += type.equals("class java.lang.Object") ? 8 : this.scaleObject(currentObject);
-                        // size += currentObject != null ? this.scaleObject(currentObject) : this.scaleClass(Class.forName(field.getType().toString().substring(6)));
+                        size += type.equals("class java.lang.Object") ? OBJECT_BYTES : sizeof(currentObject);
+                        // size += currentObject != null ? this.sizeof(currentObject) : this.scaleClass(Class.forName(field.getType().toString().substring(6)));
                     } catch (IllegalAccessException e) {
                         e.printStackTrace();
                     }
