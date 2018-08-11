@@ -1,10 +1,5 @@
 package io.github.biologyiswell.scaler;
 
-import test.io.github.biologyiswell.scaler.ScalePrototype;
-import test.io.github.biologyiswell.scaler.component.ArrayVariable;
-import test.io.github.biologyiswell.scaler.component.DataTypeVariable;
-import test.io.github.biologyiswell.scaler.component.Engineer;
-
 import java.lang.reflect.Field;
 
 /**
