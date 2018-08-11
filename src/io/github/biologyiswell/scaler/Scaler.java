@@ -58,7 +58,7 @@ public class Scaler {
      * @return the size from the object.
      * @since 1.0
      */
-    public int scaleObject(Object object) {
+    public int scaleObject(final Object object) {
         // @Note This condition check if the object is null.
         if (object == null) {
             throw new NullPointerException("object");
@@ -68,8 +68,8 @@ public class Scaler {
         int size = 8;
 
         // @Note This represents the for-each loop from the all declared fields that contains in the object class.
-        for (Field field : object.getClass().getDeclaredFields()) {
-            String type = field.getType().toString();
+        for (final Field field : object.getClass().getDeclaredFields()) {
+            final String type = field.getType().toString();
 
             // @Note Make the field accessible.
             field.setAccessible(true);
@@ -77,7 +77,7 @@ public class Scaler {
             // @Note This condition check if the current object is a String.
             if (type.equals("class java.lang.String")) {
                 try {
-                    String string = (String) field.get(object);
+                    final String string = (String) field.get(object);
 
                     // @Note The size calculates if the string object is different from null then the object occupies
                     // the 8 bytes from the object more 2 times length of String, otherwise if the string object is
@@ -93,7 +93,7 @@ public class Scaler {
                 if (type.contains("[")) {
                     try {
                         // @Note This represents the generic object to reference the array.
-                        Object currentObjectArray = field.get(object);
+                        final Object currentObjectArray = field.get(object);
 
                         // @Note The boilerplate code that this switch turn is because each primitive data type can not
                         // be cast by a Object[], then the each data type must have your cast.
@@ -138,7 +138,7 @@ public class Scaler {
                 // @Note This represents that the object is not an array.
                 else {
                     try {
-                        Object currentObject = field.get(object);
+                        final Object currentObject = field.get(object);
 
                         // @Note This condition check if the current object is equals null and if the type name from the
                         // field is equals "class java.lang.Object".
@@ -195,7 +195,7 @@ public class Scaler {
      * @param klass the class that is used to calculated the all field data types.
      * @since 1.0
      */
-    private int scaleClass(Class<?> klass) {
+    private int scaleClass(final Class<?> klass) {
         // @Note This condition check if the class is null.
         if (klass == null) {
             throw new NullPointerException("klass");
@@ -206,7 +206,7 @@ public class Scaler {
 
         // @Note For-each loop from the all declared fields that contains in this class.
         for (Field field : klass.getDeclaredFields()) {
-            String type = field.getType().toString();
+            final String type = field.getType().toString();
 
             // @Note This condition check if the field data type is a class.
             if (type.startsWith("class")) {
