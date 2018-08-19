@@ -1,11 +1,15 @@
 package io.github.biologyiswell.scaler;
 
 import java.lang.reflect.Field;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.util.List;
+import java.util.Map;
 
 /**
  * @author biologyiswell (26/07/2018 18:28)
  * @since 1.0
- * @version 1.1
+ * @version 1.2
  */
 public final class Scaler {
 
@@ -67,22 +71,24 @@ public final class Scaler {
         if (object == null) {
             throw new NullPointerException("object");
         }
-
+        // @Note Now the collection classes is calculate without using much reflections, and now the calculation is
+        // made by other methods.
+        if (object instanceof List) {
+            return sizeofList((List<?>) object);
+        } else if (object instanceof Map) {
+            return sizeofMap((Map<?, ?>) object);
+        }
         // @Note The size starts with 8 bytes, because the each class use 8 bytes.
-        int size = 8;
-
+        int size = OBJECT_BYTES;
         // @Note This represents the for-each loop from the all declared fields that contains in the object class.
         for (final Field field : object.getClass().getDeclaredFields()) {
             final String type = field.getType().toString();
-
             // @Note Make the field accessible.
             field.setAccessible(true);
-
             // @Note This condition check if the current object is a String.
             if (type.equals("class java.lang.String")) {
                 try {
                     final String string = (String) field.get(object);
-
                     // @Note The size calculates if the string object is different from null then the object occupies
                     // the 8 bytes from the object more 2 times length of String, otherwise if the string object is
                     // equals  null then the object only occupies the 8 bytes from object.
@@ -90,68 +96,18 @@ public final class Scaler {
                 } catch (IllegalAccessException e) {
                     e.printStackTrace();
                 }
-
                 continue;
             } else if (type.startsWith("class")) {
                 // @Note This condition check if the object is an array.
                 if (type.contains("[")) {
                     try {
                         // @Note This represents the generic object to reference the array.
-                        final Object currentObjectArray = field.get(object);
-
-                        if (currentObjectArray == null) {
+                        final Object objectArray = field.get(object);
+                        if (objectArray == null) {
                             continue;
                         }
-
-                        // @Note The boilerplate code that this switch turn is because each primitive data type can not
-                        // be cast by a Object[], then the each data type must have your cast.
-
-                        switch (type.charAt(7)) {
-                            case 'Z': size += ARRAY_BYTES + BOOLEAN_BYTES * ((boolean[]) currentObjectArray).length;
-                                break;
-                            case 'B': size += ARRAY_BYTES + Byte.BYTES * ((byte[]) currentObjectArray).length;
-                                break;
-                            case 'S': size += ARRAY_BYTES + Short.BYTES * ((short[]) currentObjectArray).length;
-                                break;
-                            case 'C': size += ARRAY_BYTES + Character.BYTES * ((char[]) currentObjectArray).length;
-                                break;
-                            case 'I': size += ARRAY_BYTES + Integer.BYTES * ((int[]) currentObjectArray).length;
-                                break;
-                            case 'F': size += ARRAY_BYTES + Float.BYTES * ((float[]) currentObjectArray).length;
-                                break;
-                            case 'D': size += ARRAY_BYTES + Double.BYTES * ((double[]) currentObjectArray).length;
-                                break;
-                            case 'J': size += ARRAY_BYTES + Long.BYTES * ((long[]) currentObjectArray).length;
-                                break;
-                            case 'L':
-                                // @Note This condition check if the type is a String or is a generic object.
-                                if (type.equals("class [Ljava.lang.String") || type.equals("class [Ljava.lang.Object")) {
-                                    size += ARRAY_BYTES + BOOLEAN_BYTES * ((Object[]) currentObjectArray).length;
-                                }
-
-                                // @Note This represents that the data-type from the array is not a primitive type and is not
-                                // string and generic object, then the size from the class of this data type must be
-                                // calculated and used to arrive more near to right.
-                                else {
-                                    final Object[] array = (Object[]) currentObjectArray;
-
-                                    size += ARRAY_BYTES;
-
-                                    for (Object element : array) {
-                                        // @Note This condition check if the element that contains in array is null,
-                                        // because the method "sizeof" check if the object is null and throws
-                                        // an exception.
-                                        if (element == null) {
-                                            continue;
-                                        }
-
-                                        size += sizeof(element);
-                                    }
-                                }
-                                break;
-                            default:
-                                throw new RuntimeException("Field type (" + type + ") can not be parse.");
-                        }
+                        // @Note This method calculates the size from the object array.
+                        size += sizeofArray(objectArray);
                     } catch (IllegalAccessException e) {
                         e.printStackTrace();
                     }
@@ -160,20 +116,16 @@ public final class Scaler {
                 else {
                     try {
                         final Object currentObject = field.get(object);
-
                         if (currentObject == null) {
                             continue;
                         }
-
                         size += type.equals("class java.lang.Object") ? OBJECT_BYTES : sizeof(currentObject);
                     } catch (IllegalAccessException e) {
                         e.printStackTrace();
                     }
                 }
-
                 continue;
             }
-
             switch (type) {
                 case "boolean": size += BOOLEAN_BYTES;
                     break;
@@ -191,12 +143,189 @@ public final class Scaler {
                     break;
                 case "long": size += Long.BYTES;
                     break;
-
                 default:
                     throw new RuntimeException("Field Type (" + type + ") has not found to be parse.");
             }
         }
+        return size;
+    }
 
+    /**
+     * This method calculates the size of from a class, this method is used when the object is null and can not get the
+     * array values and some others fields, this method make the calculation from the field types to can approximate
+     * to the object value.
+     *
+     * @param klass the input class.
+     * @return the size of from a class.
+     * @since 1.2
+     */
+    public static int sizeofClass(final Class<?> klass) {
+        int size = OBJECT_BYTES;
+        for (final Field field : klass.getDeclaredFields()) {
+            // @Note Get the type name from the field to can compare the field types.
+            final String type = field.getType().getTypeName();
+            if (type.equals("boolean") || type.equals("boolean[]")) size += BOOLEAN_BYTES;
+            else if (type.equals("byte") || type.equals("byte[]")) size += Byte.BYTES;
+            else if (type.equals("char") || type.equals("char[]")) size += Character.BYTES;
+            else if (type.equals("short") || type.equals("short[]")) size += Short.BYTES;
+            else if (type.equals("int") || type.equals("int[]")) size += Integer.BYTES;
+            else if (type.equals("float") || type.equals("float[]")) size += Float.BYTES;
+            else if (type.equals("double") || type.equals("double[]")) size += Double.BYTES;
+            else if (type.equals("long") || type.equals("long[]")) size += Long.BYTES;
+            else if (type.equals("java.lang.Object") || type.equals("java.lang.String") || type.equals("java.lang.Object[]") || type.equals("java.lang.String[]")) size += OBJECT_BYTES;
+            else {
+                try {
+                    size += sizeofClass(Class.forName(type.substring(0, type.indexOf('['))));
+                } catch (ClassNotFoundException e) {
+                    e.printStackTrace();
+                }
+            }
+            if (type.contains("[]")) size += ARRAY_BYTES;
+        }
+        return size;
+    }
+
+    /**
+     * This method calculates the size of a map.
+     *
+     * @param map the input map.
+     * @return the size of a map.
+     * @since 1.2
+     */
+    private static int sizeofMap(final Map<?, ?> map) {
+        int size = OBJECT_BYTES + (3 * Integer.BYTES) + Float.BYTES;
+        if (map.size() == 0) {
+            return size;
+        }
+        final int tableSize = ARRAY_BYTES;
+        final int nodeHashSize = Integer.BYTES;
+        final Map.Entry<?, ?> entry = map.entrySet().iterator().next();
+        final int keySize = sizeofBoxedType(entry.getKey());
+        final int valueSize = sizeofBoxedType(entry.getValue());
+        return size + tableSize + (map.size() * (keySize + valueSize + nodeHashSize));
+    }
+
+    /**
+     * This method calculates the size of a list.
+     *
+     * @param list the input list.
+     * @return the size of a list.
+     * @since 1.2
+     */
+    private static int sizeofList(final List<?> list) {
+        final int elementDataSize = ARRAY_BYTES;
+        final int listSize = Integer.BYTES;
+        int size = OBJECT_BYTES + elementDataSize + listSize;
+        // @Note This condition check if the list size is equals 0, or empty.
+        // Then return the calculation from the only of class size.
+        if (list.size() == 0) {
+            return size;
+        }
+        final Object element = list.get(0);
+        final int elementSize = sizeofBoxedType(element);
+        return size + (list.size() * elementSize);
+    }
+
+    /**
+     * This method calculates the size of boxed type from a primitive type.
+     *
+     * @param object the input object that is boxed type.
+     * @return the size of boxed type.
+     * @since 1.2
+     */
+    private static int sizeofBoxedType(final Object object) {
+        if (object == null) {
+            return 0;
+        }
+        int size = 0;
+        // @Note This check of conditions is made because each boxed type from a primitive type contains the value
+        // of the primitive type.
+        if (object instanceof Boolean) size += BOOLEAN_BYTES;
+        else if (object instanceof Byte) size += Byte.BYTES;
+        else if (object instanceof Character) size += Character.BYTES;
+        else if (object instanceof Short) size += Short.BYTES;
+        else if (object instanceof Integer) size += Integer.BYTES;
+        else if (object instanceof Float) size += Float.BYTES;
+        else if (object instanceof Double) size += Double.BYTES;
+        else if (object instanceof Long) size += Long.BYTES;
+        else if (object instanceof BigInteger) {
+            size += OBJECT_BYTES + (5 * Integer.BYTES);
+            int magSize;
+            // @Note This represents the size of the mag array that the BigInteger class contains.
+            try {
+                magSize = sizeofArray(object.getClass().getDeclaredField("mag").get(object));
+            } catch (IllegalAccessException | NoSuchFieldException e) {
+                magSize = 0;
+                e.printStackTrace();
+            }
+
+            size += magSize;
+        } else if (object instanceof BigDecimal) {
+            // @Note This represents the size of a BigInteger, that contains into the BigDecimal.
+            size += OBJECT_BYTES + (5 * Integer.BYTES);
+            int magSize;
+            // @Note This represents the size of the mag array that the BigInteger class contains.
+            try {
+                magSize = sizeofArray(object.getClass().getDeclaredField("mag").get(object));
+            } catch (IllegalAccessException | NoSuchFieldException e) {
+                magSize = 0;
+                e.printStackTrace();
+            }
+            // @Note Use the method "toString" from the BigDecimal is a way to get the "stringCache" more fast, without
+            // use reflection.
+            size += magSize + (2 * Integer.BYTES) + Long.BYTES + (object.toString().length() * STRING_CHARACTER_BYTES);
+        }
+        else size += sizeofArray(object);
+        return size;
+    }
+
+    /**
+     * This method calculates the size of from an array.
+     *
+     * @param object the input object that represents an array.
+     * @return the size of from an array.
+     * @since 1.2
+     */
+    private static int sizeofArray(final Object object) {
+        // @Note This condition check if the object is equals null, then this condition makes the return of zero.
+        // Because the method can not calculate a null object.
+        if (object == null) {
+            return 0;
+        }
+        // @Note The input parameter object can not be a array because this make the remove of
+        // primitive types array.
+        final String type = object.getClass().getTypeName();
+        // @Note The initial size from a array is the array bytes that each array consumes.
+        int size = ARRAY_BYTES;
+        if (type.equals("boolean[]")) size += ((boolean[]) object).length * BOOLEAN_BYTES;
+        else if (type.equals("byte[]")) size += ((byte[]) object).length * Byte.BYTES;
+        else if (type.equals("char[]")) size += ((char[]) object).length * Character.BYTES;
+        else if (type.equals("short[]")) size += ((short[]) object).length * Short.BYTES;
+        else if (type.equals("int[]")) size += ((int[]) object).length * Integer.BYTES;
+        else if (type.equals("float[]")) size += ((float[]) object).length * Float.BYTES;
+        else if (type.equals("double[]")) size += ((double[]) object).length * Double.BYTES;
+        else if (type.equals("long[]")) size += ((long[]) object).length * Long.BYTES;
+        else if (type.equals("java.lang.Object[]")) size += ((Object[]) object).length * OBJECT_BYTES;
+        else if (type.equals("java.lang.String[]")) size += ((String[]) object).length * STRING_CHARACTER_BYTES;
+        else if (type.equals("java.lang.Boolean[]")) size += ((Boolean[]) object).length * BOOLEAN_BYTES;
+        else if (type.equals("java.lang.Byte[]")) size += ((Byte[]) object).length * Byte.BYTES;
+        else if (type.equals("java.lang.Character[]")) size += ((Character[]) object).length * Character.BYTES;
+        else if (type.equals("java.lang.Short[]")) size += ((Short[]) object).length * Short.BYTES;
+        else if (type.equals("java.lang.Integer[]")) size += ((Integer[]) object).length * Integer.BYTES;
+        else if (type.equals("java.lang.Float[]")) size += ((Float[]) object).length * Float.BYTES;
+        else if (type.equals("java.lang.Double[]")) size += ((Double[]) object).length * Double.BYTES;
+        else if (type.equals("java.lang.Long[]")) size += ((Long[]) object).length * Long.BYTES;
+        // @Note This represents that the object array can not be found, then this can represents a object
+        // then calculates the object size and calculates the array consume.
+        else {
+            final String className = type.substring(0, type.indexOf('['));
+            try {
+                size += sizeofClass(Class.forName(className));
+            } catch (ClassNotFoundException e) {
+                System.err.println("An error occured when parse the array (" + object + ").");
+                e.printStackTrace();
+            }
+        }
         return size;
     }
 }
